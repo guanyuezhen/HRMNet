@@ -44,13 +44,3 @@ A framework of the proposed AR-CDNet. Initially, the bi-temporal images pass thr
     - `sh train.sh`
     - `sh test.sh`
 
-### 3. Citation
-
-Please cite our paper if you find the work useful:
-
-    @article{Li_2023_MSL-MKC,
-            title={Towards Accurate and Reliable Change Detection of Remote Sensing Images via Knowledge Review and Online Uncertainty Estimation},
-            author={Li, Zhenglai and Tang, Chang and Li, Xianju and Xie, Weiying and Sun, Kun and Zhu, Xinzhong},
-            journal={arXiv preprint arXiv:2305.19513},
-            year={2023}
-        }
