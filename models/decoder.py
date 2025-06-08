@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .temporal_difference import TemporalFusion
 from .encoder import FeatureFusionModule
 
 
@@ -177,7 +176,6 @@ class Boundary_Decoder(nn.Module):
             nn.BatchNorm2d(channel),
             nn.ReLU(inplace=True)
         )
-        self.td = TemporalFusion(channel)
         self.fam = FeatureFusionModule(channel)
         self.boundary_generation = PredictionHead(channel)
 
@@ -185,7 +183,7 @@ class Boundary_Decoder(nn.Module):
         t1_texture = self.feature_texture(t1)
         t2_texture = self.feature_texture(t2)
 
-        boundary = self.td(t1_texture, t2_texture)
+        boundary = torch.abs(t1_texture - t2_texture)
 
         boundary = self.fam(d5, boundary)
 

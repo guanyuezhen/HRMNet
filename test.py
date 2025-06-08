@@ -39,14 +39,8 @@ def val(args, val_loader, model, vis_dir):
         target_var = torch.autograd.Variable(target).float()
 
         # run the model
-        change_mask, mask_d2, mask_d3, mask_d4, mask_d5, boundary_mask = model(img_var)
-        output = change_mask
-
-        change_pre = change_mask.detach()
-        uncertainty_gt = torch.mul(target_var, (1 - change_pre)) + torch.mul(change_pre, (1 - target_var))
-        #
-        # import utils.torchutils as vis
-        # vis.visulize_features(uncertainty_gt)
+        change_mask, uncertainty_mask = model(img_var)
+        output = change_mask[:, 0:1]
 
         pred = torch.where(output > 0.5, torch.ones_like(output), torch.zeros_like(output)).long()
 
@@ -74,23 +68,6 @@ def val(args, val_loader, model, vis_dir):
         change_map = Image.fromarray(np.array(map, dtype=np.uint8))
         change_map.save(vis_dir + img_name)
 
-        import matplotlib as mpl
-        color_map = mpl.cm.get_cmap('jet')
-
-        boundary_mask = boundary_mask[0, 0].cpu().numpy()
-        boundary_mask = color_map(boundary_mask) * 255
-        boundary_mask = Image.fromarray(np.array(boundary_mask, dtype=np.uint8))
-        boundary_mask.save(vis_dir + 'confidence_pre_' + img_name)
-
-        uncertainty_gt = uncertainty_gt[0, 0].cpu().numpy()
-        uncertainty_gt = color_map(uncertainty_gt) * 255
-        uncertainty_gt = Image.fromarray(np.array(uncertainty_gt, dtype=np.uint8))
-        uncertainty_gt.save(vis_dir + 'confidence_gt_' + img_name)
-
-        change_mask = change_mask[0, 0].cpu().numpy() * 255
-        change_mask = Image.fromarray(np.array(change_mask, dtype=np.uint8))
-        change_mask.save(vis_dir + 'change_pre_' + img_name)
-
         f1 = salEvalVal.update_cm(pr, gt)
 
         if iter % 5 == 0:
@@ -109,17 +86,27 @@ def val_change_detection(args):
     torch.manual_seed(SEED)
     torch.cuda.manual_seed(SEED)
 
+    # formulate models
     model = get_model()
 
-    args.save_dir = args.save_dir + '_iter_' + str(args.max_steps) + '_lr_' + str(args.lr) + '/'
+    args.save_dir = args.save_dir + args.model_name + '/' + args.file_root + '_iter_' + str(
+        args.max_steps) + '_lr_' + str(args.lr) + '_seed_' + str(args.seed) + '/'
 
-    args.vis_dir_1 = './Predict/LEVIR/'
-    args.vis_dir_2 = './Predict/BCDD/'
-
-    args.test_data_root_1 = '/mnt/2800c818-54bc-4e2a-83d3-f418982b79e6/Change Detection/Datasets_BCD/LEVIR+TR_VAL_TE'
-    # args.test_data_root_1 = '/mnt/2800c818-54bc-4e2a-83d3-f418982b79e6/Change Detection/Methods_BCD/TDRNet/CDNet/samples'
-
-    args.test_data_root_2 = '/mnt/2800c818-54bc-4e2a-83d3-f418982b79e6/Change Detection/Datasets_BCD/BCDD-512_TE'
+    if args.file_root == 'LEVIR':
+        args.test_data_root_1 = '../BCD/LEVIR+512'
+        args.test_data_root_2 = '../BCD/BCDD-512'
+        args.vis_dir_1 = './predict/' + args.model_name + '/' + args.file_root + '/LEVIR/'
+        args.vis_dir_2 = './predict/' + args.model_name + '/' + args.file_root + '/BCDD/'
+    elif args.file_root == 'GVLM':
+        args.test_data_root_1 = '../BCD/GVLM-512'
+        args.test_data_root_2 = '../BCD/GVLM-512'
+        args.vis_dir_1 = './predict/' + args.model_name + '/' + args.file_root + '/GVLM/'
+        args.vis_dir_2 = './predict/' + args.model_name + '/' + args.file_root + '/GVLM2/'
+    elif args.file_root == 'MCD':
+        args.train_data_root = '../BCD/MCD-512'
+        args.test_data_root_1 = '../BCD/MCD-512'
+        args.vis_dir_1 = './predict/' + args.model_name + '/' + args.file_root + '/MCD/'
+        args.vis_dir_2 = './predict/' + args.model_name + '/' + args.file_root + '/MCD2/'
 
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
@@ -205,7 +192,9 @@ def val_change_detection(args):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('--file_root', default="LEVIR", help='Data directory')
+    parser.add_argument('--seed', type=int, default=4079, help='Seed')
+    parser.add_argument('--model_name', default="HRMNet", help='Data directory')
+    parser.add_argument('--file_root', default="MCD", help='Data directory')
     parser.add_argument('--inWidth', type=int, default=512, help='Width of RGB image')
     parser.add_argument('--inHeight', type=int, default=512, help='Height of RGB image')
     parser.add_argument('--max_steps', type=int, default=20000, help='Max. number of iterations')
@@ -213,13 +202,12 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=1, help='Batch size')
     parser.add_argument('--lr', type=float, default=5e-4, help='Initial learning rate')
     parser.add_argument('--lr_mode', default='poly', help='Learning rate policy')
-    parser.add_argument('--save_dir', default='./weights/model', help='Directory to save the results')
-    parser.add_argument('--logFile', default='trainValLog.txt',
+    parser.add_argument('--save_dir', default='./weights/', help='Directory to save the results')
+    parser.add_argument('--logFile', default='Test.txt',
                         help='File that stores the training and validation logs')
     parser.add_argument('--onGPU', default=True, type=lambda x: (str(x).lower() == 'true'),
                         help='Run on CPU or GPU. If TRUE, then GPU.')
     parser.add_argument('--weight', default='', type=str, help='pretrained weight, can be a non-strict copy')
-    parser.add_argument('--ms', type=int, default=0, help='apply multi-scale training, default False')
 
     args = parser.parse_args()
     print('Called with args:')

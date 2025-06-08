@@ -4,7 +4,6 @@ import torch.nn.functional as F
 from .encoder import Encoder
 from .decoder import KnowledgeReviewDecoder
 from .decoder import Boundary_Decoder
-from .temporal_difference import TemporalFusion
 
 
 class BaseNet(nn.Module):
@@ -12,10 +11,6 @@ class BaseNet(nn.Module):
         super(BaseNet, self).__init__()
         channel = 64
         self.encoder = Encoder(channel)
-        self.td_d2 = TemporalFusion(channel)
-        self.td_d3 = TemporalFusion(channel)
-        self.td_d4 = TemporalFusion(channel)
-        self.td_d5 = TemporalFusion(channel)
         self.kr_decoder = KnowledgeReviewDecoder(channel)
         self.b_decoder = Boundary_Decoder(channel)
 
@@ -26,10 +21,10 @@ class BaseNet(nn.Module):
         t1_p2, t1_p3, t1_p4, t1_p5 = self.encoder(t1)
         t2_p2, t2_p3, t2_p4, t2_p5 = self.encoder(t2)
         #
-        d2 = self.td_d2(t1_p2, t2_p2)
-        d3 = self.td_d3(t1_p3, t2_p3)
-        d4 = self.td_d4(t1_p4, t2_p4)
-        d5 = self.td_d5(t1_p5, t2_p5)
+        d2 = torch.abs(t1_p2 - t2_p2)
+        d3 = torch.abs(t1_p3 - t2_p3)
+        d4 = torch.abs(t1_p4 - t2_p4)
+        d5 = torch.abs(t1_p5 - t2_p5)
 
         # import tools.torchutils as vis
         # feature_vis = torch.cat([
@@ -64,7 +59,9 @@ class BaseNet(nn.Module):
         #     change_mask, mask_d2, mask_d3, mask_d4, mask_d5, boundary_mask
         # ], dim=1))
 
-        return change_mask, mask_d2, mask_d3, mask_d4, mask_d5, boundary_mask
+        cd_masks = torch.cat([change_mask, mask_d2, mask_d3, mask_d4, mask_d5], dim=1)
+
+        return cd_masks, boundary_mask
 
 
 def get_model():

@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import timm
+from timm.models.resnet import _cfg as resnet_cfg
 
 
 class PyramidPoolingModule(nn.Module):
@@ -56,11 +57,6 @@ class PyramidPoolingModule(nn.Module):
 class FeatureFusionModule(nn.Module):
     def __init__(self, channel):
         super(FeatureFusionModule, self).__init__()
-        self.semantic_attention = nn.Sequential(
-            nn.Conv2d(channel, channel, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(channel),
-            nn.Sigmoid()
-        )
         self.low_level_context = nn.Sequential(
             nn.Conv2d(channel, channel, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(channel)
@@ -73,8 +69,7 @@ class FeatureFusionModule(nn.Module):
 
     def forward(self, x1, x2):
         x1 = F.interpolate(x1, x2.size()[2:], mode='bilinear', align_corners=True)
-        att = self.semantic_attention(x1)
-        x2 = self.low_level_context(torch.mul(x2, att) + x2)
+        x2 = self.low_level_context(x2)
         ffm_out = self.fusion_conv(torch.cat([x1, x2], dim=1))
 
         return ffm_out
@@ -84,7 +79,11 @@ class Encoder(nn.Module):
     def __init__(self, channel):
         super(Encoder, self).__init__()
         in_channels = [64, 64, 128, 256, 512]
-        self.context_encoder = timm.create_model('resnet18d', features_only=True, pretrained=True)
+        encoder_config = resnet_cfg(url='', file='./models/resnet18d_ra2-48a79e06.pth')
+        self.context_encoder = timm.create_model('resnet18d', features_only=True,
+                                            output_stride=32, pretrained=True,
+                                            pretrained_cfg=encoder_config)
+        # self.context_encoder = timm.create_model('resnet18d', features_only=True, pretrained=True)
         self.channel_reduction_c4 = nn.Sequential(
             nn.Conv2d(in_channels[3], channel, kernel_size=1),
             nn.BatchNorm2d(channel),
