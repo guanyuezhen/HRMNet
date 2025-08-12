@@ -1,4 +1,4 @@
-# <p align=center>`Boosting Remote Sensing Change Detection via Hard Region Mining (Under Review)`</p>
+# <p align=center>`Boosting Remote Sensing Change Detection via Hard Region Mining （IEEE TGRS 2025）`</p>
 
 This repository contains simple python implementation of our paper HRMNet.
 
